@@ -1,0 +1,37 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Hotel extends Model
+{
+    protected $fillable = [
+        'nom',
+        'destination_id',
+        'etoiles',
+        'prix_nuit',
+        'adresse',
+        'description',
+        'image',
+        'disponible',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'prix_nuit' => 'decimal:2',
+            'disponible' => 'boolean',
+        ];
+    }
+
+    public function destination()
+    {
+        return $this->belongsTo(Destination::class);
+    }
+
+    public function reservations()
+    {
+        return $this->hasMany(Reservation::class);
+    }
+}
