@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:voyageur/core/router/app_routes.dart';
 import 'package:voyageur/core/router/route_guards.dart';
@@ -19,6 +20,7 @@ import 'package:voyageur/screens/reservations/reservation_detail_screen.dart';
 import 'package:voyageur/screens/reservations/create_reservation_screen.dart';
 import 'package:voyageur/screens/payment/payment_screen.dart';
 import 'package:voyageur/screens/payment/payment_success_screen.dart';
+import 'package:voyageur/screens/destinations/destinations_screen.dart';
 import 'package:voyageur/screens/destinations/destination_detail_screen.dart';
 import 'package:voyageur/screens/guides/guides_screen.dart';
 import 'package:voyageur/screens/guides/guide_detail_screen.dart';
@@ -28,7 +30,11 @@ import 'package:voyageur/screens/profile/edit_profile_screen.dart';
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
 
-GoRouter appRouter(Ref ref) {
+// NOTE: Signature changed from `GoRouter appRouter(Ref ref)` to
+// `GoRouter appRouter(Ref<GoRouter> ref)` — `Ref` alone is not exported
+// by Riverpod; the typed form `Ref<T>` (or `ProviderRef<T>`) is correct.
+// The function is only called from inside routerProvider so this is fine.
+GoRouter _buildRouter(Ref<GoRouter> ref) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.splash,
@@ -103,6 +109,12 @@ GoRouter appRouter(Ref ref) {
           ),
         ],
       ),
+      // FIX: /destinations was missing — caused runtime exception from
+      // context.go(AppRoutes.destinations) in featured_destinations.dart
+      GoRoute(
+        path: AppRoutes.destinations,
+        builder: (context, state) => const DestinationsScreen(),
+      ),
       GoRoute(
         path: AppRoutes.volList,
         builder: (context, state) => const VolsListScreen(),
@@ -170,4 +182,4 @@ GoRouter appRouter(Ref ref) {
   );
 }
 
-final routerProvider = Provider<GoRouter>((ref) => appRouter(ref));
+final routerProvider = Provider<GoRouter>(_buildRouter);
