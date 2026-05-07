@@ -23,6 +23,6 @@ extension StringExtensions on String {
     final name = parts[0];
     final domain = parts[1];
     if (name.length <= 2) return '***@$domain';
-    return '${name[0]}${'*' * (name.length - 2)}${name.last}@domain';
+    return '${name[0]}${'*' * (name.length - 2)}${name[name.length - 1]}@domain';
   }
 }
