@@ -12,7 +12,7 @@ class SocialLoginButtons extends StatelessWidget {
         Expanded(
           child: OutlinedButton.icon(
             onPressed: () {},
-            icon: const Icon(Icons.g_mobile_digit, size: 24),
+            icon: const Icon(Icons.g_mobiledata, size: 24),
             label: const Text('Google'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
