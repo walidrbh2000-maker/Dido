@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:voyageur/core/localization/locale_provider.dart';
 
 class AppLocalizations {
-  static const LocalizationsDelegate<MaterialLocalizations> delegate =
+  static final LocalizationsDelegate<MaterialLocalizations> delegate =
       MaterialLocalizations.delegate;
 
   static const List<Locale> supportedLocales = [
