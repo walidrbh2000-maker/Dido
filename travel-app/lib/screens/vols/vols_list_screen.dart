@@ -8,6 +8,8 @@ import 'package:voyageur/providers/vol/vol_provider.dart';
 import 'package:voyageur/screens/vols/widgets/vol_filter_sheet.dart';
 import 'package:voyageur/shared_widgets/cards/vol_card.dart';
 import 'package:voyageur/shared_widgets/errors/empty_state_widget.dart';
+// FIX: explicit import added to avoid conflict with Flutter's internal ErrorWidget.
+import 'package:voyageur/shared_widgets/errors/error_widget.dart';
 import 'package:voyageur/shared_widgets/shimmer/list_shimmer.dart';
 
 class VolsListScreen extends ConsumerWidget {
@@ -28,7 +30,8 @@ class VolsListScreen extends ConsumerWidget {
                 context: context,
                 isScrollControlled: true,
                 shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.borderRadiusLg)),
+                  borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(AppSpacing.borderRadiusLg)),
                 ),
                 builder: (_) => VolFilterSheet(
                   onApply: (filters) {
@@ -62,7 +65,8 @@ class VolsListScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               return VolCard(
                 vol: vols[index],
-                onTap: () => context.go(AppRoutes.volDetailPath(vols[index].id)),
+                onTap: () =>
+                    context.go(AppRoutes.volDetailPath(vols[index].id)),
               );
             },
           );
