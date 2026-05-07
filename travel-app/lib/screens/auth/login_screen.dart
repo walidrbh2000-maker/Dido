@@ -43,10 +43,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final isLoading = authState is AuthLoading;
+    final isLoading = authState.maybeWhen(
+      loading: () => true,
+      orElse: () => false,
+    );
 
-    ref.listen<AuthState>(authProvider, (prev, next) {
-      next.when(
+    ref.listen(authProvider, (prev, next) {
+      next?.when(
         initial: () {},
         loading: () {},
         authenticated: (_) => context.go(AppRoutes.home),
