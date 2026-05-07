@@ -2,8 +2,11 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'app_error.freezed.dart';
 
+// NOTE: `sealed` removed — freezed generates subclasses in a separate
+// .freezed.dart file which lives outside this library, making `sealed`
+// illegal under Dart 3 sealed-class rules.
 @freezed
-sealed class AppError with _$AppError {
+class AppError with _$AppError {
   const factory AppError.network(String message) = NetworkError;
   const factory AppError.unauthorized() = UnauthorizedError;
   const factory AppError.notFound(String resource) = NotFoundError;
