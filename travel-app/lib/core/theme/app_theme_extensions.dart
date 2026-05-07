@@ -16,11 +16,8 @@ extension ThemeExtensions on BuildContext {
   double get bottomPadding => MediaQuery.of(this).padding.bottom;
 }
 
-extension ColorExtensions on Color {
-  Color withValues({double? alpha}) {
-    return withOpacity(alpha ?? 1.0);
-  }
-}
+// NOTE: ColorExtensions.withValues removed — conflicts with Flutter 3.27+
+// native Color.withValues(). Use withOpacity(x) directly everywhere instead.
 
 extension SizedBoxExtensions on num {
   SizedBox get h => SizedBox(height: toDouble());
