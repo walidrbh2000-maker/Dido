@@ -1,4 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+// FIX: DestinationInfo is defined in vol_model.dart — import was missing.
+import 'package:voyageur/data/models/vol_model.dart';
 
 part 'hotel_model.freezed.dart';
 part 'hotel_model.g.dart';
