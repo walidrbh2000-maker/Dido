@@ -24,7 +24,8 @@ RESET  := \033[0m
         migrate seed fresh db-shell \
         cache-clear cache-build key jwt-secret \
         test lint ps prune \
-        ngrok ngrok-install ngrok-status ngrok-stop
+        ngrok ngrok-install ngrok-status ngrok-stop \
+        _wait-for-app
 
 .DEFAULT_GOAL := help
 
@@ -44,26 +45,26 @@ help: ## Show this help message
 # ==============================================================================
 _wait-for-app:
 	@echo "$(YELLOW)▶ Waiting for app container to be ready...$(RESET)"
-	@for i in $(seq 1 30); do \
-		STATUS=$($(COMPOSE) ps -q $(APP_CONTAINER) 2>/dev/null | xargs docker inspect --format='{{.State.Status}}' 2>/dev/null); \
-		if [ "$STATUS" = "running" ]; then \
+	@i=0; \
+	while [ $$i -lt 30 ]; do \
+		i=$$((i+1)); \
+		STATUS=$$($(COMPOSE) ps -q $(APP_CONTAINER) 2>/dev/null | xargs -I{} docker inspect --format='{{.State.Status}}' {} 2>/dev/null); \
+		if [ "$$STATUS" = "running" ]; then \
 			echo "$(GREEN)✔ App container is running$(RESET)"; \
-			break; \
+			exit 0; \
 		fi; \
-		echo "  waiting... ($i/30) status=$STATUS"; \
+		echo "  waiting... ($$i/30) status=$$STATUS"; \
 		sleep 3; \
-		if [ "$i" = "30" ]; then \
-			echo "$(RED)✗ App container failed to start. Check logs: make logs-app$(RESET)"; \
-			exit 1; \
-		fi; \
-	done
+	done; \
+	echo "$(RED)✗ App container failed to start. Run: make logs-app$(RESET)"; \
+	exit 1
 
 # ==============================================================================
 #  CORE — Start / Stop / Restart
 # ==============================================================================
 start: ## Start containers (keys are auto-generated inside entrypoint.sh)
 	@echo "$(YELLOW)▶ Checking containers...$(RESET)"
-	@if [ -z "$($(COMPOSE) ps -q 2>/dev/null)" ]; then \
+	@if [ -z "$$($(COMPOSE) ps -q 2>/dev/null)" ]; then \
 		echo "$(YELLOW)▶ No containers found — building and starting...$(RESET)"; \
 		$(COMPOSE) up --build -d; \
 	else \
@@ -89,11 +90,7 @@ restart: ## Restart all containers
 build: ## Force rebuild all images then start
 	@echo "$(YELLOW)▶ Rebuilding images...$(RESET)"
 	@$(COMPOSE) up --build -d
-	@echo "$(YELLOW)▶ Waiting for services to be ready...$(RESET)"
-	@sleep 5
-	@$(MAKE) -s _ensure-app-key
-	@$(MAKE) -s _ensure-jwt-secret
-	@$(MAKE) -s _rebuild-cache
+	@$(MAKE) -s _wait-for-app
 	@echo "$(GREEN)✔ Build complete → http://localhost:8080$(RESET)"
 
 up: ## Start containers in foreground (shows live logs)
@@ -210,7 +207,7 @@ ngrok-install: ## Install ngrok if not already installed
 			if [ "$$ARCH" = "aarch64" ] || [ "$$ARCH" = "arm64" ]; then \
 				curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip -o /tmp/ngrok.zip; \
 			else \
-				curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -o /tmp/ngrok.zip; \
+				curl -sSL https://bin.equinux.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -o /tmp/ngrok.zip; \
 			fi; \
 			unzip -o /tmp/ngrok.zip -d /tmp/ngrok-bin; \
 			sudo mv /tmp/ngrok-bin/ngrok /usr/local/bin/ngrok; \
