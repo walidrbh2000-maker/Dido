@@ -5,8 +5,8 @@
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 COMPOSE         := docker compose
-APP_CONTAINER   := travel-backend
-DB_CONTAINER    := travel-db
+APP_CONTAINER   := app
+DB_CONTAINER    := db
 
 # ── ngrok Configuration ────────────────────────────────────────────────────────
 NGROK_AUTH_TOKEN  := 2dPikNNTJMtqOZI2fh8sgKjNT0p_6Q2DywWVLbboAexW8e7Ge
