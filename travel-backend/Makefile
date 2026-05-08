@@ -40,56 +40,37 @@ help: ## Show this help message
 	@echo ""
 
 # ==============================================================================
-#  INTERNAL — Key generation helpers
+#  INTERNAL — Wait until app container is healthy
 # ==============================================================================
-
-# Checks APP_KEY inside the container's .env and generates it if empty
-_ensure-app-key:
-	@APP_KEY=$$($(COMPOSE) exec -T $(APP_CONTAINER) grep -E "^APP_KEY=" /var/www/html/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]'); \
-	if [ -z "$$APP_KEY" ]; then \
-		echo "$(YELLOW)▶ APP_KEY missing — generating...$(RESET)"; \
-		$(COMPOSE) exec -T $(APP_CONTAINER) php artisan key:generate --force; \
-		echo "$(GREEN)✔ APP_KEY generated$(RESET)"; \
-	else \
-		echo "$(GREEN)✔ APP_KEY already set$(RESET)"; \
-	fi
-
-# Checks JWT_SECRET inside the container's .env and generates it if empty
-_ensure-jwt-secret:
-	@JWT_SECRET=$$($(COMPOSE) exec -T $(APP_CONTAINER) grep -E "^JWT_SECRET=" /var/www/html/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]'); \
-	if [ -z "$$JWT_SECRET" ]; then \
-		echo "$(YELLOW)▶ JWT_SECRET missing — generating...$(RESET)"; \
-		$(COMPOSE) exec -T $(APP_CONTAINER) php artisan jwt:secret --force; \
-		echo "$(GREEN)✔ JWT_SECRET generated$(RESET)"; \
-	else \
-		echo "$(GREEN)✔ JWT_SECRET already set$(RESET)"; \
-	fi
-
-# Rebuild config cache after key generation
-_rebuild-cache:
-	@echo "$(YELLOW)▶ Rebuilding config cache...$(RESET)"
-	@$(COMPOSE) exec -T $(APP_CONTAINER) php artisan config:clear
-	@$(COMPOSE) exec -T $(APP_CONTAINER) php artisan config:cache
-	@$(COMPOSE) exec -T $(APP_CONTAINER) php artisan route:cache
-	@echo "$(GREEN)✔ Cache rebuilt$(RESET)"
+_wait-for-app:
+	@echo "$(YELLOW)▶ Waiting for app container to be ready...$(RESET)"
+	@for i in $(seq 1 30); do \
+		STATUS=$($(COMPOSE) ps -q $(APP_CONTAINER) 2>/dev/null | xargs docker inspect --format='{{.State.Status}}' 2>/dev/null); \
+		if [ "$STATUS" = "running" ]; then \
+			echo "$(GREEN)✔ App container is running$(RESET)"; \
+			break; \
+		fi; \
+		echo "  waiting... ($i/30) status=$STATUS"; \
+		sleep 3; \
+		if [ "$i" = "30" ]; then \
+			echo "$(RED)✗ App container failed to start. Check logs: make logs-app$(RESET)"; \
+			exit 1; \
+		fi; \
+	done
 
 # ==============================================================================
 #  CORE — Start / Stop / Restart
 # ==============================================================================
-start: ## Start containers + auto-generate APP_KEY & JWT_SECRET if missing
+start: ## Start containers (keys are auto-generated inside entrypoint.sh)
 	@echo "$(YELLOW)▶ Checking containers...$(RESET)"
-	@if [ -z "$$($(COMPOSE) ps -q 2>/dev/null)" ]; then \
+	@if [ -z "$($(COMPOSE) ps -q 2>/dev/null)" ]; then \
 		echo "$(YELLOW)▶ No containers found — building and starting...$(RESET)"; \
 		$(COMPOSE) up --build -d; \
 	else \
 		echo "$(YELLOW)▶ Containers found — starting...$(RESET)"; \
 		$(COMPOSE) start; \
 	fi
-	@echo "$(YELLOW)▶ Waiting for services to be ready...$(RESET)"
-	@sleep 5
-	@$(MAKE) -s _ensure-app-key
-	@$(MAKE) -s _ensure-jwt-secret
-	@$(MAKE) -s _rebuild-cache
+	@$(MAKE) -s _wait-for-app
 	@echo ""
 	@echo "$(GREEN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
 	@echo "$(GREEN)  ✔ Application is up → http://localhost:8080$(RESET)"
