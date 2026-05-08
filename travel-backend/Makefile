@@ -207,7 +207,7 @@ ngrok-install: ## Install ngrok if not already installed
 			if [ "$$ARCH" = "aarch64" ] || [ "$$ARCH" = "arm64" ]; then \
 				curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip -o /tmp/ngrok.zip; \
 			else \
-				curl -sSL https://bin.equinux.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -o /tmp/ngrok.zip; \
+				curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -o /tmp/ngrok.zip; \
 			fi; \
 			unzip -o /tmp/ngrok.zip -d /tmp/ngrok-bin; \
 			sudo mv /tmp/ngrok-bin/ngrok /usr/local/bin/ngrok; \
