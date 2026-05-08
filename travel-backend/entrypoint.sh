@@ -5,6 +5,30 @@ set -e
 ENV_FILE="/var/www/html/.env"
 ARTISAN="/var/www/html/artisan"
 
+# ── 0. Bootstrap Laravel if missing ──────────────────────────────────────────
+if [ ! -f "/var/www/html/composer.json" ]; then
+    echo "▶ No Laravel project found — creating fresh install..."
+
+    composer create-project laravel/laravel /tmp/laravel-base "^11.0" \
+        --prefer-dist --no-interaction --quiet
+
+    # Copy base Laravel into workdir without overwriting existing custom files
+    cp -rn /tmp/laravel-base/. /var/www/html/
+    rm -rf /tmp/laravel-base
+
+    echo "▶ Installing required packages..."
+    cd /var/www/html
+    composer require \
+        tymon/jwt-auth \
+        barryvdh/laravel-dompdf \
+        --no-interaction --quiet
+
+    # Register JWT provider
+    php artisan vendor:publish --provider="Tymon\JWTAuth\Providers\LaravelServiceProvider" --quiet || true
+
+    echo "✔ Laravel project ready."
+fi
+
 # ── 1. Wait for MySQL ─────────────────────────────────────────────────────────
 echo "▶ Waiting for database connection..."
 DB_HOST="${DB_HOST:-db}"
