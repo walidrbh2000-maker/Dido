@@ -12,7 +12,6 @@ if [ ! -f "/var/www/html/composer.json" ]; then
     composer create-project laravel/laravel /tmp/laravel-base "^11.0" \
         --prefer-dist --no-interaction --quiet
 
-    # Copy base Laravel into workdir without overwriting existing custom files
     cp -rn /tmp/laravel-base/. /var/www/html/
     rm -rf /tmp/laravel-base
 
@@ -23,7 +22,6 @@ if [ ! -f "/var/www/html/composer.json" ]; then
         barryvdh/laravel-dompdf \
         --no-interaction --quiet
 
-    # Register JWT provider
     php artisan vendor:publish --provider="Tymon\JWTAuth\Providers\LaravelServiceProvider" --quiet || true
 
     echo "✔ Laravel project ready."
@@ -54,7 +52,7 @@ done
 echo "▶ Installing Composer dependencies..."
 composer install --no-interaction --optimize-autoloader --no-dev
 
-# ── 3. Generate APP_KEY (before anything that needs encryption) ───────────────
+# ── 3. Generate APP_KEY ───────────────────────────────────────────────────────
 if [ ! -f "$ENV_FILE" ]; then
     echo "✗ .env file not found at $ENV_FILE"
     exit 1
@@ -84,12 +82,11 @@ echo "▶ Running migrations..."
 php "$ARTISAN" migrate --force
 echo "✔ Migrations done."
 
-# ── 6. Run seeders ────────────────────────────────────────────────────────────
+# ── 6. Run seeders (non-fatal — skip if already seeded) ──────────────────────
 echo "▶ Seeding database..."
-php "$ARTISAN" db:seed --force
-echo "✔ Seeding done."
+php "$ARTISAN" db:seed --force || echo "⚠ Seeding skipped (already seeded or error — continuing)."
 
-# ── 7. Build caches (safe now that keys exist) ────────────────────────────────
+# ── 7. Build caches ───────────────────────────────────────────────────────────
 echo "▶ Caching config and routes..."
 php "$ARTISAN" config:cache
 php "$ARTISAN" route:cache
