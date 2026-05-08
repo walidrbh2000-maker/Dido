@@ -48,9 +48,9 @@ for i in $(seq 1 30); do
     fi
 done
 
-# ── 2. Install Composer dependencies ─────────────────────────────────────────
+# ── 2. Install Composer dependencies (with dev for factories/seeders) ─────────
 echo "▶ Installing Composer dependencies..."
-composer install --no-interaction --optimize-autoloader --no-dev
+composer install --no-interaction --optimize-autoloader
 
 # ── 3. Generate APP_KEY ───────────────────────────────────────────────────────
 if [ ! -f "$ENV_FILE" ]; then
