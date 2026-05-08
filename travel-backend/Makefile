@@ -20,14 +20,12 @@ CYAN   := \033[0;36m
 RED    := \033[0;31m
 RESET  := \033[0m
 
-# Prevent make from treating targets as files
-.PHONY: help start stop restart build up down logs shell \
+.PHONY: help start stop restart build up down logs logs-app shell \
         migrate seed fresh db-shell \
-        cache-clear cache-config cache-route \
+        cache-clear cache-build key jwt-secret \
         test lint ps prune \
         ngrok ngrok-install ngrok-status ngrok-stop
 
-# ── Default target ─────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
 
 # ==============================================================================
@@ -42,9 +40,43 @@ help: ## Show this help message
 	@echo ""
 
 # ==============================================================================
+#  INTERNAL — Key generation helpers
+# ==============================================================================
+
+# Checks APP_KEY inside the container's .env and generates it if empty
+_ensure-app-key:
+	@APP_KEY=$$($(COMPOSE) exec -T $(APP_CONTAINER) grep -E "^APP_KEY=" /var/www/html/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]'); \
+	if [ -z "$$APP_KEY" ]; then \
+		echo "$(YELLOW)▶ APP_KEY missing — generating...$(RESET)"; \
+		$(COMPOSE) exec -T $(APP_CONTAINER) php artisan key:generate --force; \
+		echo "$(GREEN)✔ APP_KEY generated$(RESET)"; \
+	else \
+		echo "$(GREEN)✔ APP_KEY already set$(RESET)"; \
+	fi
+
+# Checks JWT_SECRET inside the container's .env and generates it if empty
+_ensure-jwt-secret:
+	@JWT_SECRET=$$($(COMPOSE) exec -T $(APP_CONTAINER) grep -E "^JWT_SECRET=" /var/www/html/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]'); \
+	if [ -z "$$JWT_SECRET" ]; then \
+		echo "$(YELLOW)▶ JWT_SECRET missing — generating...$(RESET)"; \
+		$(COMPOSE) exec -T $(APP_CONTAINER) php artisan jwt:secret --force; \
+		echo "$(GREEN)✔ JWT_SECRET generated$(RESET)"; \
+	else \
+		echo "$(GREEN)✔ JWT_SECRET already set$(RESET)"; \
+	fi
+
+# Rebuild config cache after key generation
+_rebuild-cache:
+	@echo "$(YELLOW)▶ Rebuilding config cache...$(RESET)"
+	@$(COMPOSE) exec -T $(APP_CONTAINER) php artisan config:clear
+	@$(COMPOSE) exec -T $(APP_CONTAINER) php artisan config:cache
+	@$(COMPOSE) exec -T $(APP_CONTAINER) php artisan route:cache
+	@echo "$(GREEN)✔ Cache rebuilt$(RESET)"
+
+# ==============================================================================
 #  CORE — Start / Stop / Restart
 # ==============================================================================
-start: ## Start containers (build if missing, up if already built)
+start: ## Start containers + auto-generate APP_KEY & JWT_SECRET if missing
 	@echo "$(YELLOW)▶ Checking containers...$(RESET)"
 	@if [ -z "$$($(COMPOSE) ps -q 2>/dev/null)" ]; then \
 		echo "$(YELLOW)▶ No containers found — building and starting...$(RESET)"; \
@@ -53,7 +85,15 @@ start: ## Start containers (build if missing, up if already built)
 		echo "$(YELLOW)▶ Containers found — starting...$(RESET)"; \
 		$(COMPOSE) start; \
 	fi
-	@echo "$(GREEN)✔ Application is up → http://localhost:8080$(RESET)"
+	@echo "$(YELLOW)▶ Waiting for services to be ready...$(RESET)"
+	@sleep 5
+	@$(MAKE) -s _ensure-app-key
+	@$(MAKE) -s _ensure-jwt-secret
+	@$(MAKE) -s _rebuild-cache
+	@echo ""
+	@echo "$(GREEN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+	@echo "$(GREEN)  ✔ Application is up → http://localhost:8080$(RESET)"
+	@echo "$(GREEN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
 
 stop: ## Stop running containers (preserves data)
 	@echo "$(YELLOW)▶ Stopping containers...$(RESET)"
@@ -68,6 +108,11 @@ restart: ## Restart all containers
 build: ## Force rebuild all images then start
 	@echo "$(YELLOW)▶ Rebuilding images...$(RESET)"
 	@$(COMPOSE) up --build -d
+	@echo "$(YELLOW)▶ Waiting for services to be ready...$(RESET)"
+	@sleep 5
+	@$(MAKE) -s _ensure-app-key
+	@$(MAKE) -s _ensure-jwt-secret
+	@$(MAKE) -s _rebuild-cache
 	@echo "$(GREEN)✔ Build complete → http://localhost:8080$(RESET)"
 
 up: ## Start containers in foreground (shows live logs)
@@ -117,7 +162,6 @@ fresh: ## Drop all tables, re-migrate and re-seed (⚠ destroys data)
 	@$(COMPOSE) exec $(APP_CONTAINER) php artisan migrate:fresh --seed --force
 	@echo "$(GREEN)✔ Database reset complete$(RESET)"
 
-# ── Cache ──────────────────────────────────────────────────────────────────────
 cache-clear: ## Clear all Laravel caches
 	@$(COMPOSE) exec $(APP_CONTAINER) php artisan cache:clear
 	@$(COMPOSE) exec $(APP_CONTAINER) php artisan config:clear
@@ -130,12 +174,11 @@ cache-build: ## Rebuild Laravel config/route cache (for production)
 	@$(COMPOSE) exec $(APP_CONTAINER) php artisan route:cache
 	@echo "$(GREEN)✔ Cache rebuilt$(RESET)"
 
-# ── Keys & JWT ─────────────────────────────────────────────────────────────────
-key: ## Generate Laravel APP_KEY
-	@$(COMPOSE) exec $(APP_CONTAINER) php artisan key:generate
+key: ## Generate Laravel APP_KEY manually
+	@$(COMPOSE) exec $(APP_CONTAINER) php artisan key:generate --force
 
-jwt-secret: ## Generate JWT secret
-	@$(COMPOSE) exec $(APP_CONTAINER) php artisan jwt:secret
+jwt-secret: ## Generate JWT secret manually
+	@$(COMPOSE) exec $(APP_CONTAINER) php artisan jwt:secret --force
 
 # ==============================================================================
 #  TESTING & QUALITY
@@ -163,8 +206,6 @@ prune: ## ⚠ Remove containers, images AND volumes (full reset)
 # ==============================================================================
 #  NGROK — Tunnel Management
 # ==============================================================================
-
-# ── Internal: install ngrok if missing ────────────────────────────────────────
 ngrok-install: ## Install ngrok if not already installed
 	@if command -v ngrok >/dev/null 2>&1; then \
 		echo "$(GREEN)✔ ngrok already installed: $$(ngrok --version)$(RESET)"; \
@@ -172,10 +213,8 @@ ngrok-install: ## Install ngrok if not already installed
 		echo "$(YELLOW)▶ ngrok not found — installing...$(RESET)"; \
 		if [ "$$(uname)" = "Darwin" ]; then \
 			if command -v brew >/dev/null 2>&1; then \
-				echo "$(YELLOW)  Using Homebrew...$(RESET)"; \
 				brew install ngrok/ngrok/ngrok; \
 			else \
-				echo "$(YELLOW)  Downloading ngrok for macOS (arm64)...$(RESET)"; \
 				ARCH=$$(uname -m); \
 				if [ "$$ARCH" = "arm64" ]; then \
 					curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-arm64.zip -o /tmp/ngrok.zip; \
@@ -186,7 +225,6 @@ ngrok-install: ## Install ngrok if not already installed
 				rm /tmp/ngrok.zip; \
 			fi; \
 		elif [ "$$(uname)" = "Linux" ]; then \
-			echo "$(YELLOW)  Downloading ngrok for Linux...$(RESET)"; \
 			ARCH=$$(uname -m); \
 			if [ "$$ARCH" = "aarch64" ] || [ "$$ARCH" = "arm64" ]; then \
 				curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip -o /tmp/ngrok.zip; \
@@ -209,10 +247,7 @@ ngrok: ngrok-install ## Start ngrok tunnel → https://$(NGROK_DOMAIN)
 	@ngrok config add-authtoken $(NGROK_AUTH_TOKEN)
 	@echo "$(YELLOW)▶ Checking that the app containers are running...$(RESET)"
 	@if [ -z "$$($(COMPOSE) ps -q 2>/dev/null)" ]; then \
-		echo "$(YELLOW)  Containers not running — starting them first...$(RESET)"; \
-		$(COMPOSE) up --build -d; \
-		echo "$(YELLOW)  Waiting 5s for services to be ready...$(RESET)"; \
-		sleep 5; \
+		$(MAKE) start; \
 	fi
 	@echo ""
 	@echo "$(GREEN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
