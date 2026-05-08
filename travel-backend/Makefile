@@ -8,17 +8,24 @@ COMPOSE         := docker compose
 APP_CONTAINER   := travel-backend
 DB_CONTAINER    := travel-db
 
+# ── ngrok Configuration ────────────────────────────────────────────────────────
+NGROK_AUTH_TOKEN  := 2dPikNNTJMtqOZI2fh8sgKjNT0p_6Q2DywWVLbboAexW8e7Ge
+NGROK_DOMAIN      := tiger-sudoku-tiara.ngrok-free.dev
+NGROK_LOCAL_PORT  := 8080
+
 # Colours for pretty output
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
 CYAN   := \033[0;36m
+RED    := \033[0;31m
 RESET  := \033[0m
 
 # Prevent make from treating targets as files
 .PHONY: help start stop restart build up down logs shell \
         migrate seed fresh db-shell \
         cache-clear cache-config cache-route \
-        test lint ps prune
+        test lint ps prune \
+        ngrok ngrok-install ngrok-status ngrok-stop
 
 # ── Default target ─────────────────────────────────────────────────────────────
 .DEFAULT_GOAL := help
@@ -152,3 +159,83 @@ prune: ## ⚠ Remove containers, images AND volumes (full reset)
 	@read -p "Are you sure? [y/N] " confirm && [ "$$confirm" = "y" ]
 	@$(COMPOSE) down -v --rmi all --remove-orphans
 	@echo "$(GREEN)✔ Full cleanup done$(RESET)"
+
+# ==============================================================================
+#  NGROK — Tunnel Management
+# ==============================================================================
+
+# ── Internal: install ngrok if missing ────────────────────────────────────────
+ngrok-install: ## Install ngrok if not already installed
+	@if command -v ngrok >/dev/null 2>&1; then \
+		echo "$(GREEN)✔ ngrok already installed: $$(ngrok --version)$(RESET)"; \
+	else \
+		echo "$(YELLOW)▶ ngrok not found — installing...$(RESET)"; \
+		if [ "$$(uname)" = "Darwin" ]; then \
+			if command -v brew >/dev/null 2>&1; then \
+				echo "$(YELLOW)  Using Homebrew...$(RESET)"; \
+				brew install ngrok/ngrok/ngrok; \
+			else \
+				echo "$(YELLOW)  Downloading ngrok for macOS (arm64)...$(RESET)"; \
+				ARCH=$$(uname -m); \
+				if [ "$$ARCH" = "arm64" ]; then \
+					curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-arm64.zip -o /tmp/ngrok.zip; \
+				else \
+					curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-amd64.zip -o /tmp/ngrok.zip; \
+				fi; \
+				unzip -o /tmp/ngrok.zip -d /usr/local/bin; \
+				rm /tmp/ngrok.zip; \
+			fi; \
+		elif [ "$$(uname)" = "Linux" ]; then \
+			echo "$(YELLOW)  Downloading ngrok for Linux...$(RESET)"; \
+			ARCH=$$(uname -m); \
+			if [ "$$ARCH" = "aarch64" ] || [ "$$ARCH" = "arm64" ]; then \
+				curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-arm64.zip -o /tmp/ngrok.zip; \
+			else \
+				curl -sSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip -o /tmp/ngrok.zip; \
+			fi; \
+			unzip -o /tmp/ngrok.zip -d /tmp/ngrok-bin; \
+			sudo mv /tmp/ngrok-bin/ngrok /usr/local/bin/ngrok; \
+			sudo chmod +x /usr/local/bin/ngrok; \
+			rm -rf /tmp/ngrok.zip /tmp/ngrok-bin; \
+		else \
+			echo "$(RED)✗ Unsupported OS. Install ngrok manually: https://ngrok.com/download$(RESET)"; \
+			exit 1; \
+		fi; \
+		echo "$(GREEN)✔ ngrok installed: $$(ngrok --version)$(RESET)"; \
+	fi
+
+ngrok: ngrok-install ## Start ngrok tunnel → https://$(NGROK_DOMAIN)
+	@echo "$(YELLOW)▶ Configuring ngrok auth token...$(RESET)"
+	@ngrok config add-authtoken $(NGROK_AUTH_TOKEN)
+	@echo "$(YELLOW)▶ Checking that the app containers are running...$(RESET)"
+	@if [ -z "$$($(COMPOSE) ps -q 2>/dev/null)" ]; then \
+		echo "$(YELLOW)  Containers not running — starting them first...$(RESET)"; \
+		$(COMPOSE) up --build -d; \
+		echo "$(YELLOW)  Waiting 5s for services to be ready...$(RESET)"; \
+		sleep 5; \
+	fi
+	@echo ""
+	@echo "$(GREEN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+	@echo "$(GREEN)  ✔ Tunnel public URL:$(RESET)"
+	@echo "$(CYAN)     https://$(NGROK_DOMAIN)$(RESET)"
+	@echo "$(GREEN)  ✔ API base URL for Flutter:$(RESET)"
+	@echo "$(CYAN)     https://$(NGROK_DOMAIN)/api/v1$(RESET)"
+	@echo "$(GREEN)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
+	@echo ""
+	@echo "$(YELLOW)  Press Ctrl+C to stop the tunnel$(RESET)"
+	@echo ""
+	@ngrok http --domain=$(NGROK_DOMAIN) $(NGROK_LOCAL_PORT)
+
+ngrok-status: ## Show ngrok tunnel status (requires tunnel to be running)
+	@echo "$(CYAN)▶ ngrok tunnel info:$(RESET)"
+	@curl -s http://localhost:4040/api/tunnels 2>/dev/null \
+		| python3 -c "import sys,json; \
+			data=json.load(sys.stdin); \
+			[print('  URL:', t['public_url'], '→', t['config']['addr']) \
+			for t in data.get('tunnels',[])]" \
+		|| echo "$(RED)  No active tunnel found. Run: make ngrok$(RESET)"
+
+ngrok-stop: ## Kill any running ngrok process
+	@echo "$(YELLOW)▶ Stopping ngrok...$(RESET)"
+	@pkill -f ngrok && echo "$(GREEN)✔ ngrok stopped$(RESET)" \
+		|| echo "$(YELLOW)  No ngrok process was running$(RESET)"
