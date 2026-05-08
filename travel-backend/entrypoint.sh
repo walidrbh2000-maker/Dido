@@ -2,36 +2,75 @@
 
 set -e
 
-echo "Installing dependencies..."
-composer install --no-interaction --optimize-autoloader
+ENV_FILE="/var/www/html/.env"
+ARTISAN="/var/www/html/artisan"
 
-echo "Running migrations..."
-php artisan migrate --force
+# ── 1. Wait for MySQL ─────────────────────────────────────────────────────────
+echo "▶ Waiting for database connection..."
+DB_HOST="${DB_HOST:-db}"
+DB_PORT="${DB_PORT:-3306}"
+DB_DATABASE="${DB_DATABASE:-travel}"
+DB_USERNAME="${DB_USERNAME:-travel_user}"
+DB_PASSWORD="${DB_PASSWORD:-secret}"
 
-echo "Running seeders..."
-php artisan db:seed --force
+for i in $(seq 1 30); do
+    if php -r "new PDO('mysql:host=${DB_HOST};port=${DB_PORT};dbname=${DB_DATABASE}', '${DB_USERNAME}', '${DB_PASSWORD}');" 2>/dev/null; then
+        echo "✔ Database is ready."
+        break
+    fi
+    echo "  DB not ready — retrying ($i/30)..."
+    sleep 3
+    if [ "$i" = "30" ]; then
+        echo "✗ Could not connect to database after 30 attempts. Aborting."
+        exit 1
+    fi
+done
 
-# ── Keys (must happen before config:cache) ────────────────────────────────────
+# ── 2. Install Composer dependencies ─────────────────────────────────────────
+echo "▶ Installing Composer dependencies..."
+composer install --no-interaction --optimize-autoloader --no-dev
 
-APP_KEY=$(grep -E "^APP_KEY=" /var/www/html/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+# ── 3. Generate APP_KEY (before anything that needs encryption) ───────────────
+if [ ! -f "$ENV_FILE" ]; then
+    echo "✗ .env file not found at $ENV_FILE"
+    exit 1
+fi
+
+APP_KEY=$(grep -E "^APP_KEY=" "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]')
 if [ -z "$APP_KEY" ]; then
-    echo "APP_KEY missing — generating..."
-    php artisan key:generate --force
-    echo "APP_KEY generated."
+    echo "▶ APP_KEY missing — generating..."
+    php "$ARTISAN" key:generate --force
+    echo "✔ APP_KEY generated."
+else
+    echo "✔ APP_KEY already set."
 fi
 
-JWT_SECRET=$(grep -E "^JWT_SECRET=" /var/www/html/.env 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')
+# ── 4. Generate JWT_SECRET ────────────────────────────────────────────────────
+JWT_SECRET=$(grep -E "^JWT_SECRET=" "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]')
 if [ -z "$JWT_SECRET" ]; then
-    echo "JWT_SECRET missing — generating..."
-    php artisan jwt:secret --force
-    echo "JWT_SECRET generated."
+    echo "▶ JWT_SECRET missing — generating..."
+    php "$ARTISAN" jwt:secret --force
+    echo "✔ JWT_SECRET generated."
+else
+    echo "✔ JWT_SECRET already set."
 fi
 
-# ── Cache (now safe to run) ───────────────────────────────────────────────────
+# ── 5. Run migrations ─────────────────────────────────────────────────────────
+echo "▶ Running migrations..."
+php "$ARTISAN" migrate --force
+echo "✔ Migrations done."
 
-echo "Caching config..."
-php artisan config:cache
-php artisan route:cache
+# ── 6. Run seeders ────────────────────────────────────────────────────────────
+echo "▶ Seeding database..."
+php "$ARTISAN" db:seed --force
+echo "✔ Seeding done."
 
-echo "Starting PHP-FPM..."
+# ── 7. Build caches (safe now that keys exist) ────────────────────────────────
+echo "▶ Caching config and routes..."
+php "$ARTISAN" config:cache
+php "$ARTISAN" route:cache
+echo "✔ Cache built."
+
+# ── 8. Start PHP-FPM ─────────────────────────────────────────────────────────
+echo "▶ Starting PHP-FPM..."
 exec "$@"
