@@ -13,21 +13,21 @@ class HotelController extends Controller
     {
         $query = Hotel::with('destination');
 
-        if ($request->has('destination_id')) {
+        if ($request->filled('destination_id')) {
             $query->where('destination_id', $request->destination_id);
         }
 
-        if ($request->has('etoiles')) {
+        if ($request->filled('etoiles')) {
             $query->where('etoiles', '>=', $request->etoiles);
         }
 
-        if ($request->has('prix_max')) {
+        if ($request->filled('prix_max')) {
             $query->where('prix_nuit', '<=', $request->prix_max);
         }
 
         $hotels = $query->where('disponible', true)
             ->orderBy('etoiles', 'desc')
-            ->paginate($request->per_page ?? 15);
+            ->paginate($request->integer('per_page', 15));
 
         return response()->json($hotels);
     }
@@ -38,7 +38,7 @@ class HotelController extends Controller
 
         return response()->json([
             'message' => 'Hôtel créé avec succès',
-            'hotel' => $hotel->load('destination'),
+            'hotel'   => $hotel->load('destination'),
         ], 201);
     }
 
@@ -53,7 +53,7 @@ class HotelController extends Controller
 
         return response()->json([
             'message' => 'Hôtel mis à jour',
-            'hotel' => $hotel->load('destination'),
+            'hotel'   => $hotel->load('destination'),
         ]);
     }
 
@@ -61,8 +61,6 @@ class HotelController extends Controller
     {
         $hotel->delete();
 
-        return response()->json([
-            'message' => 'Hôtel supprimé',
-        ]);
+        return response()->json(['message' => 'Hôtel supprimé']);
     }
 }

@@ -18,8 +18,8 @@ class PaymentController extends Controller
     {
         $request->validate([
             'reservation_id' => 'required|exists:reservations,id',
-            'methode' => 'required|in:carte,paypal,virement',
-            'token' => 'required|string',
+            'methode'        => 'required|in:carte,paypal,virement',
+            'token'          => 'required|string',
         ]);
 
         $payment = $this->paymentService->processPayment(

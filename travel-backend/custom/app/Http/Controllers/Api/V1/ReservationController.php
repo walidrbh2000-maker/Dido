@@ -9,7 +9,6 @@ use App\Services\TicketService;
 use App\Models\Reservation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReservationController extends Controller
 {
@@ -23,7 +22,7 @@ class ReservationController extends Controller
         $reservations = Reservation::with(['vol.destination', 'hotel'])
             ->where('user_id', auth()->id())
             ->orderBy('created_at', 'desc')
-            ->paginate($request->per_page ?? 15);
+            ->paginate($request->integer('per_page', 15));
 
         return response()->json($reservations);
     }
@@ -36,7 +35,7 @@ class ReservationController extends Controller
         );
 
         return response()->json([
-            'message' => 'Réservation créée avec succès',
+            'message'     => 'Réservation créée avec succès',
             'reservation' => $reservation->load(['vol.destination', 'hotel']),
         ], 201);
     }
@@ -45,17 +44,21 @@ class ReservationController extends Controller
     {
         $this->authorizeReservation($reservation);
 
-        return response()->json($reservation->load(['vol.destination', 'hotel', 'payments']));
+        return response()->json(
+            $reservation->load(['vol.destination', 'hotel', 'payments'])
+        );
     }
 
     public function update(StoreReservationRequest $request, Reservation $reservation): JsonResponse
     {
         $this->authorizeReservation($reservation);
 
-        $reservation = $this->reservationService->updateReservation($reservation, $request->validated());
+        $reservation = $this->reservationService->updateReservation(
+            $reservation, $request->validated()
+        );
 
         return response()->json([
-            'message' => 'Réservation mise à jour',
+            'message'     => 'Réservation mise à jour',
             'reservation' => $reservation->load(['vol.destination', 'hotel']),
         ]);
     }
@@ -63,12 +66,9 @@ class ReservationController extends Controller
     public function destroy(Reservation $reservation): JsonResponse
     {
         $this->authorizeReservation($reservation);
-
         $this->reservationService->cancelReservation($reservation);
 
-        return response()->json([
-            'message' => 'Réservation annulée',
-        ]);
+        return response()->json(['message' => 'Réservation annulée']);
     }
 
     public function ticket(Reservation $reservation)

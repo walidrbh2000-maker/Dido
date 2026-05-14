@@ -14,25 +14,25 @@ class VolController extends Controller
     {
         $query = Vol::with('destination');
 
-        if ($request->has('destination_id')) {
+        if ($request->filled('destination_id')) {
             $query->where('destination_id', $request->destination_id);
         }
 
-        if ($request->has('date_depart')) {
+        if ($request->filled('date_depart')) {
             $query->whereDate('date_depart', '>=', $request->date_depart);
         }
 
-        if ($request->has('prix_max')) {
+        if ($request->filled('prix_max')) {
             $query->where('prix', '<=', $request->prix_max);
         }
 
-        if ($request->has('classe')) {
+        if ($request->filled('classe')) {
             $query->where('classe', $request->classe);
         }
 
         $vols = $query->where('places_disponibles', '>', 0)
             ->orderBy('date_depart')
-            ->paginate($request->per_page ?? 15);
+            ->paginate($request->integer('per_page', 15));
 
         return response()->json($vols);
     }
@@ -43,7 +43,7 @@ class VolController extends Controller
 
         return response()->json([
             'message' => 'Vol créé avec succès',
-            'vol' => new VolResource($vol->load('destination')),
+            'vol'     => new VolResource($vol->load('destination')),
         ], 201);
     }
 
@@ -58,7 +58,7 @@ class VolController extends Controller
 
         return response()->json([
             'message' => 'Vol mis à jour',
-            'vol' => new VolResource($vol->load('destination')),
+            'vol'     => new VolResource($vol->load('destination')),
         ]);
     }
 
@@ -66,8 +66,6 @@ class VolController extends Controller
     {
         $vol->delete();
 
-        return response()->json([
-            'message' => 'Vol supprimé',
-        ]);
+        return response()->json(['message' => 'Vol supprimé']);
     }
 }

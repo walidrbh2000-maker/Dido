@@ -16,19 +16,19 @@ class AuthController extends Controller
     public function register(RegisterRequest $request): JsonResponse
     {
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
+            'name'     => $request->name,
+            'email'    => $request->email,
             'password' => Hash::make($request->password),
-            'phone' => $request->phone,
-            'role' => 'client',
+            'phone'    => $request->phone,
+            'role'     => 'client',
         ]);
 
         $token = JWTAuth::fromUser($user);
 
         return response()->json([
             'message' => 'Inscription réussie',
-            'user' => new UserResource($user),
-            'token' => $token,
+            'user'    => new UserResource($user),
+            'token'   => $token,
         ], 201);
     }
 
@@ -37,15 +37,13 @@ class AuthController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (!$token = JWTAuth::attempt($credentials)) {
-            return response()->json([
-                'message' => 'Identifiants invalides',
-            ], 401);
+            return response()->json(['message' => 'Identifiants invalides'], 401);
         }
 
         return response()->json([
             'message' => 'Connexion réussie',
-            'user' => new UserResource(auth()->user()),
-            'token' => $token,
+            'user'    => new UserResource(auth()->user()),
+            'token'   => $token,
         ]);
     }
 
@@ -58,8 +56,6 @@ class AuthController extends Controller
     {
         JWTAuth::invalidate(JWTAuth::getToken());
 
-        return response()->json([
-            'message' => 'Déconnexion réussie',
-        ]);
+        return response()->json(['message' => 'Déconnexion réussie']);
     }
 }
