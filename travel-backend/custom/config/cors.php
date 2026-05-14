@@ -1,18 +1,11 @@
 <?php
 
 return [
-
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
     'allowed_methods' => ['*'],
 
-    /*
-    |----------------------------------------------------------------------
-    | IMPORTANT: must be an array — NOT a string.
-    | env() returns a string; PHP 8.2 throws TypeError in in_array()
-    | if the second argument is not an array.
-    |----------------------------------------------------------------------
-    */
+    // MUST be an array — env() returns a string which causes TypeError in PHP 8.2
     'allowed_origins' => ['*'],
 
     'allowed_origins_patterns' => [],
@@ -24,5 +17,4 @@ return [
     'max_age' => 0,
 
     'supports_credentials' => false,
-
 ];
