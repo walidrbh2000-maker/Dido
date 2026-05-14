@@ -79,7 +79,7 @@ else
     echo "✔ JWT_SECRET already set."
 fi
 
-# ── 5. Fix storage & cache permissions (www-data = PHP-FPM user) ──────────────
+# ── 5. Fix storage permissions (www-data = PHP-FPM user) ─────────────────────
 echo "▶ Fixing storage permissions..."
 mkdir -p /var/www/html/storage/logs \
          /var/www/html/storage/framework/cache \
@@ -106,9 +106,8 @@ echo "✔ Migrations done."
 echo "▶ Seeding database..."
 php "$ARTISAN" db:seed --force || echo "⚠ Seeding skipped (already seeded or error — continuing)."
 
-# ── 8. Build caches ───────────────────────────────────────────────────────────
+# ── 8. Build caches (as www-data so PHP-FPM can overwrite them) ───────────────
 echo "▶ Caching config and routes..."
-# Run as www-data so the cache files are writable by PHP-FPM
 su -s /bin/sh www-data -c "php $ARTISAN config:cache"
 su -s /bin/sh www-data -c "php $ARTISAN route:cache"
 echo "✔ Cache built."
