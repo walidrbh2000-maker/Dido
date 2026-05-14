@@ -11,8 +11,12 @@ class GuideFactory extends Factory
     {
         return [
             'nom'                => fake()->name(),
-            'destination_id'     => Destination::inRandomOrder()->first()?->id ?? Destination::factory(),
-            'langues'            => fake()->randomElements(['fr', 'en', 'ar', 'es', 'de'], fake()->numberBetween(1, 3)),
+            'destination_id'     => Destination::inRandomOrder()->first()?->id
+                                    ?? Destination::factory(),
+            'langues'            => fake()->randomElements(
+                                        ['fr', 'en', 'ar', 'es', 'de', 'it'],
+                                        fake()->numberBetween(1, 3)
+                                    ),
             'experience_annees'  => fake()->numberBetween(1, 20),
             'tarif_jour'         => fake()->randomFloat(2, 50, 300),
             'description'        => fake()->paragraph(),

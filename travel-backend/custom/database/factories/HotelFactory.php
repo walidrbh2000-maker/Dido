@@ -11,7 +11,8 @@ class HotelFactory extends Factory
     {
         return [
             'nom'            => fake()->company() . ' Hotel',
-            'destination_id' => Destination::inRandomOrder()->first()?->id ?? Destination::factory(),
+            'destination_id' => Destination::inRandomOrder()->first()?->id
+                                ?? Destination::factory(),
             'etoiles'        => fake()->numberBetween(2, 5),
             'prix_nuit'      => fake()->randomFloat(2, 50, 800),
             'adresse'        => fake()->address(),

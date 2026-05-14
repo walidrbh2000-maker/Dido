@@ -10,11 +10,11 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name'  => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
+            'name'     => fake()->name(),
+            'email'    => fake()->unique()->safeEmail(),
             'password' => Hash::make('password'),
-            'phone' => fake()->phoneNumber(),
-            'role'  => 'client',
+            'phone'    => fake()->phoneNumber(),
+            'role'     => 'client',
         ];
     }
 }

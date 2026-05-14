@@ -8,14 +8,22 @@ class DestinationFactory extends Factory
 {
     public function definition(): array
     {
-        $cities = ['Paris', 'Rome', 'Barcelone', 'Istanbul', 'Dubaï', 'Tokyo', 'New York', 'Marrakech'];
-        $countries = ['France', 'Italie', 'Espagne', 'Turquie', 'Émirats', 'Japon', 'États-Unis', 'Maroc'];
-
-        $index = fake()->numberBetween(0, count($cities) - 1);
+        $data = fake()->randomElement([
+            ['Paris',     'France'],
+            ['Rome',      'Italie'],
+            ['Barcelone', 'Espagne'],
+            ['Istanbul',  'Turquie'],
+            ['Dubaï',     'Émirats'],
+            ['Tokyo',     'Japon'],
+            ['New York',  'États-Unis'],
+            ['Marrakech', 'Maroc'],
+            ['Bangkok',   'Thaïlande'],
+            ['Lisbonne',  'Portugal'],
+        ]);
 
         return [
-            'name'        => $cities[$index],
-            'country'     => $countries[$index],
+            'name'        => $data[0],
+            'country'     => $data[1],
             'description' => fake()->paragraph(),
             'image'       => null,
             'is_popular'  => fake()->boolean(40),
