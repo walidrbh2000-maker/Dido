@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:voyageur/core/router/app_routes.dart';
 import 'package:voyageur/core/router/route_guards.dart';
+import 'package:voyageur/providers/auth/auth_provider.dart';
+import 'package:voyageur/providers/auth/auth_state.dart';
 import 'package:voyageur/screens/splash/splash_screen.dart';
 import 'package:voyageur/screens/onboarding/onboarding_screen.dart';
 import 'package:voyageur/screens/auth/login_screen.dart';
@@ -30,33 +32,35 @@ import 'package:voyageur/screens/profile/edit_profile_screen.dart';
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final shellNavigatorKey = GlobalKey<NavigatorState>();
 
-// NOTE: Signature changed from `GoRouter appRouter(Ref ref)` to
-// `GoRouter appRouter(Ref<GoRouter> ref)` — `Ref` alone is not exported
-// by Riverpod; the typed form `Ref<T>` (or `ProviderRef<T>`) is correct.
-// The function is only called from inside routerProvider so this is fine.
 GoRouter _buildRouter(Ref<GoRouter> ref) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.splash,
     debugLogDiagnostics: true,
     redirect: (context, state) {
-      final isAuthenticated = ref.read(authGuardProvider);
-      final isAuthRoute = state.matchedLocation.startsWith('/auth');
-      final isPublicRoute = state.matchedLocation == AppRoutes.splash ||
-          state.matchedLocation == AppRoutes.onboarding ||
-          isAuthRoute;
+      final authState = ref.read(authProvider);
+
+      // ── Ne pas rediriger tant que l'état d'auth n'est pas déterminé ──
+      if (authState is AuthInitial || authState is AuthLoading) {
+        return null;
+      }
+
+      final isAuthenticated = authState is AuthAuthenticated;
+      final loc = state.matchedLocation;
+      final isAuthRoute = loc.startsWith('/auth');
+      final isPublicRoute =
+          loc == AppRoutes.splash || loc == AppRoutes.onboarding || isAuthRoute;
 
       if (!isAuthenticated && !isPublicRoute) {
         return AppRoutes.login;
       }
-
       if (isAuthenticated && isAuthRoute) {
         return AppRoutes.home;
       }
-
       return null;
     },
     routes: [
+      // ── Routes publiques ──────────────────────────────────────────────
       GoRoute(
         path: AppRoutes.splash,
         builder: (context, state) => const SplashScreen(),
@@ -73,47 +77,51 @@ GoRouter _buildRouter(Ref<GoRouter> ref) {
         path: AppRoutes.register,
         builder: (context, state) => const RegisterScreen(),
       ),
+
+      // ── Shell (bottom nav) ─────────────────────────────────────────────
       ShellRoute(
         navigatorKey: shellNavigatorKey,
         builder: (context, state, child) => MainNavigationScreen(child: child),
         routes: [
           GoRoute(
             path: AppRoutes.home,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: HomeScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: HomeScreen()),
           ),
           GoRoute(
             path: AppRoutes.vols,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: VolsSearchScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: VolsSearchScreen()),
           ),
           GoRoute(
             path: AppRoutes.hotels,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: HotelsSearchScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: HotelsSearchScreen()),
           ),
           GoRoute(
             path: AppRoutes.reservations,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: ReservationsScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ReservationsScreen()),
           ),
           GoRoute(
             path: AppRoutes.profile,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: ProfileScreen(),
-            ),
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: ProfileScreen()),
           ),
         ],
       ),
-      // FIX: /destinations was missing — caused runtime exception from
-      // context.go(AppRoutes.destinations) in featured_destinations.dart
+
+      // ── Routes de détail — en dehors du shell (conservent le back stack) ──
       GoRoute(
         path: AppRoutes.destinations,
         builder: (context, state) => const DestinationsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.destinationDetail,
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return DestinationDetailScreen(destinationId: id);
+        },
       ),
       GoRoute(
         path: AppRoutes.volList,
@@ -155,13 +163,6 @@ GoRouter _buildRouter(Ref<GoRouter> ref) {
       GoRoute(
         path: AppRoutes.paymentSuccess,
         builder: (context, state) => const PaymentSuccessScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.destinationDetail,
-        builder: (context, state) {
-          final id = int.parse(state.pathParameters['id']!);
-          return DestinationDetailScreen(destinationId: id);
-        },
       ),
       GoRoute(
         path: AppRoutes.guides,
